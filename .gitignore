@@ -1,0 +1,8 @@
+.DS_Store
+build/
+xcuserdata/
+*.xcuserstate
+web/node_modules/
+web/dist/
+Support/Local.xcconfig
+.env

@@ -1,0 +1,15 @@
+// Code signing for the app target.
+//
+// By default builds are signed "to run locally" (ad hoc), so anyone can build from source. The keychain
+// ties "Always Allow" to the exact build when signed that way, so every rebuild asks for the API key again.
+// To stop that, create Support/Local.xcconfig (ignored by git) with your own certificate, for example:
+//
+//   CODE_SIGN_IDENTITY = Developer ID Application
+//   DEVELOPMENT_TEAM = ABCDE12345
+//
+// The release workflow passes its own signing settings and doesn't use either file.
+
+CODE_SIGN_STYLE = Manual
+CODE_SIGN_IDENTITY = -
+
+#include? "Local.xcconfig"

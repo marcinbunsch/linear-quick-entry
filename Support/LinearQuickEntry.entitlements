@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Not sandboxed: the app reads files dragged from anywhere and runs /usr/sbin/screencapture.
+	     Hardened runtime (required for notarization) is switched on by the release workflow only: local builds are
+	     signed ad hoc, and the hardened runtime would refuse to load the separately signed Sparkle framework. -->
+</dict>
+</plist>
