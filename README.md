@@ -90,8 +90,7 @@ Setting it up, once, on the Mac that has the certificate:
 Cutting a release:
 
 1. Run `./scripts/release.sh patch` (or `minor`, `major`, or an exact version like `0.1.0`). It bumps the version, tags it and pushes.
-2. The Release workflow builds the DMG, notarizes it and attaches it, with the update feed, to a draft GitHub release.
-3. Publish the draft. That's the moment existing installs see the update.
+2. The Release workflow builds the DMG, notarizes it and publishes it with the update feed as the latest GitHub release. Existing installs see the update from then on.
 
 ## Licence
 

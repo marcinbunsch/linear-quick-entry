@@ -1,8 +1,8 @@
 name: Release
 
 # Cut a release with ./scripts/release.sh <patch|minor|major|x.y.z>: it bumps the version,
-# tags and pushes, and pushing the tag runs this workflow, which attaches a signed,
-# notarized DMG and the Sparkle update feed to a draft GitHub release.
+# tags and pushes, and pushing the tag runs this workflow, which publishes a GitHub release
+# with a signed, notarized DMG and the Sparkle update feed.
 #
 # The secrets come from ./scripts/setup-signing.sh (run once on the Mac with the certificate):
 #   SIGN_CERT_P12, SIGN_CERT_PASSWORD   the Developer ID certificate and its export password
@@ -168,9 +168,9 @@ jobs:
           name: ${{ steps.dmg.outputs.name }}
           path: build/release/${{ steps.dmg.outputs.name }}
 
-      # A draft, so the notes are yours to write. Publishing it is what makes the update feed live:
-      # Sparkle reads the feed from the latest published release.
-      - name: Attach to the release
+      # Created as a draft, filled, then published and marked latest, so the release is never public
+      # without its DMG. Publishing makes the update live: Sparkle reads the latest release's appcast.xml.
+      - name: Publish the release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
@@ -180,3 +180,4 @@ jobs:
           FILES=("build/release/${{ steps.dmg.outputs.name }}")
           if [ -f build/release/appcast.xml ]; then FILES+=(build/release/appcast.xml); fi
           gh release upload "$GITHUB_REF_NAME" "${FILES[@]}" --clobber
+          gh release edit "$GITHUB_REF_NAME" --draft=false --latest
