@@ -114,6 +114,12 @@ final class BridgeRouter {
         case "settings.get":
             return try encode(dependencies.settings.snapshot)
 
+        case "screenRecording.openSettings":
+            // Out of the way first: the floating panel would cover System Settings.
+            panelActions.hide()
+            ScreenRecordingPermission.openSettings()
+            return emptyResult
+
         case "settings.open":
             panelActions.openSettings()
             return emptyResult

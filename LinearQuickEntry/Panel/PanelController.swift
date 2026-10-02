@@ -274,8 +274,8 @@ final class PanelController: NSObject, WKNavigationDelegate {
     }
 
     private func captureScreenshot() async throws -> ScreenshotOutcome {
-        // Without permission macOS shows its own prompt, or the user has to visit System Settings.
-        // The floating panel would sit on top of either, so it stays hidden until the next hotkey.
+        // Without permission macOS may show its own prompt; the floating panel would sit on top of it,
+        // so it stays hidden until the next hotkey, which shows a note explaining what to do.
         guard CGPreflightScreenCaptureAccess() else {
             panel.orderOut(nil)
             ScreenRecordingPermission.request()

@@ -49,6 +49,8 @@ export type NativeMethods = {
   'issue.created': { params: { identifier: string; title: string; url: string }; result: Record<string, never> }
   'settings.get': { params: Record<string, never>; result: NativeSettings }
   'settings.open': { params: Record<string, never>; result: Record<string, never> }
+  /** Hides the panel and opens System Settings at Privacy & Security → Screen Recording. */
+  'screenRecording.openSettings': { params: Record<string, never>; result: Record<string, never> }
   log: {
     params: { level: 'info' | 'warning' | 'error'; message: string; fields: Record<string, string | number | boolean> }
     result: Record<string, never>

@@ -32,6 +32,7 @@ export class FakeNativeBridge implements NativeBridge {
     this.handle('log', async () => ({}))
     this.handle('panel.hide', async () => ({}))
     this.handle('panel.beginDrag', async () => ({}))
+    this.handle('screenRecording.openSettings', async () => ({}))
     this.handle('panel.resize', async () => ({}))
     this.handle('issue.created', async () => ({}))
     this.handle('upload.cancel', async () => ({}))

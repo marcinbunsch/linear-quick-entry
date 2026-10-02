@@ -133,7 +133,10 @@ const StatusBanner = observer(function StatusBanner({ app }: { app: AppControlle
     return <Banner tone="danger" message={refreshError} onRetry={() => void referenceData.refresh()} onOpenSettings={onOpenSettings} />
   }
   if (isLoadingWorkspace) return <Banner tone="info" message={strings.status.loadingWorkspace} />
-  if (app.notice) return <Banner tone="info" message={app.notice} onDismiss={() => app.dismissNotice()} />
+  if (app.notice?.kind === 'screenRecordingNeeded') {
+    return <Banner tone="info" message={app.notice.message} onOpenSettings={() => app.openScreenRecordingSettings()} onDismiss={() => app.dismissNotice()} />
+  }
+  if (app.notice) return <Banner tone="info" message={app.notice.message} onDismiss={() => app.dismissNotice()} />
   return null
 })
 

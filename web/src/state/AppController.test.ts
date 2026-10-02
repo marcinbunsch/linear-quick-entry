@@ -167,7 +167,7 @@ describe('AppController', () => {
 
       bridge.emit('files.dropped', { files: [], rejected: ['invoice.pdf', 'notes.txt'], x: 5, y: 5 })
 
-      expect(app.notice).toBe('Skipped invoice.pdf and notes.txt: only images and videos can be attached')
+      expect(app.notice?.message).toBe('Skipped invoice.pdf and notes.txt: only images and videos can be attached')
     })
 
     it('screenshot taken while typing the title -> goes to the tray', async () => {
@@ -192,7 +192,7 @@ describe('AppController', () => {
       expect(app.notice).toBeNull()
     })
 
-    it('no Screen Recording permission yet -> nothing added, notice says where to allow it', async () => {
+    it('no Screen Recording permission -> nothing added, a lasting notice explains the restart', async () => {
       const { app, bridge } = await startedApp()
       appToDispose = app
       bridge.handle('screenshot.capture', async () => ({ file: null, needsPermission: true }))
@@ -200,7 +200,20 @@ describe('AppController', () => {
       await app.captureScreenshot()
 
       expect(app.attachments.attachments.size).toBe(0)
-      expect(app.notice).toContain('System Settings → Privacy & Security → Screen Recording')
+      expect(app.notice?.kind).toBe('screenRecordingNeeded')
+      expect(app.notice?.message).toContain('quit and reopen')
+    })
+
+    it('Open Settings on that notice -> native side opens Screen Recording settings, notice cleared', async () => {
+      const { app, bridge } = await startedApp()
+      appToDispose = app
+      bridge.handle('screenshot.capture', async () => ({ file: null, needsPermission: true }))
+      await app.captureScreenshot()
+
+      app.openScreenRecordingSettings()
+
+      expect(bridge.callsTo('screenRecording.openSettings')).toHaveLength(1)
+      expect(app.notice).toBeNull()
     })
   })
 

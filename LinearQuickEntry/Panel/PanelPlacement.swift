@@ -30,19 +30,18 @@ struct PanelPlacementStore {
     }
 }
 
-/// Asking for Screen Recording access. macOS shows its prompt only the first time an app asks;
-/// after that the only way is System Settings, so later requests open the right page there.
+/// Screen Recording access for screenshots.
+///
+/// macOS decides whether to show its prompt: only the first time this exact app signature asks.
+/// Permission granted to an earlier build (say, an unsigned one) doesn't carry over, and a new grant
+/// only takes effect after the app is reopened, so the panel explains both instead of guessing.
 enum ScreenRecordingPermission {
-    private static let hasAskedKey = "hasRequestedScreenRecording"
-
-    static func request(defaults: UserDefaults = .standard) {
-        if defaults.bool(forKey: hasAskedKey) {
-            if let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                NSWorkspace.shared.open(settingsURL)
-            }
-            return
-        }
-        defaults.set(true, forKey: hasAskedKey)
+    static func request() {
         CGRequestScreenCaptureAccess()
+    }
+
+    static func openSettings() {
+        guard let settingsURL = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else { return }
+        NSWorkspace.shared.open(settingsURL)
     }
 }

@@ -23,6 +23,9 @@ export type AttachTarget = { kind: 'inlineAtSelection' } | { kind: 'inlineAtPoin
 
 export type Lifecycle = 'starting' | 'ready' | 'disposed'
 
+/** A short message above the form. The Screen Recording one stays until dismissed and offers a way to fix it. */
+export type Notice = { kind: 'info'; message: string } | { kind: 'screenRecordingNeeded'; message: string }
+
 // 300ms: drafts are saved shortly after typing pauses rather than on every keystroke.
 const DRAFT_SAVE_DELAY_MS = 300
 // 5s: long enough to read a one-line notice, short enough not to linger over the form.
@@ -48,7 +51,7 @@ export class AppController {
   createMore = false
   lastFocusedField: 'title' | 'description' = 'title'
   dropTarget: 'inline' | 'tray' | null = null
-  notice: string | null = null
+  notice: Notice | null = null
   /** Bumped whenever the title should take focus; the title input watches it. */
   titleFocusRequest = 0
 
@@ -249,7 +252,7 @@ export class AppController {
   async captureScreenshot(): Promise<void> {
     await this.runNativeFileAction(async () => {
       const { file, needsPermission } = await this._bridge.call('screenshot.capture', {})
-      if (needsPermission) this.showNotice(strings.attachments.screenRecordingNeeded)
+      if (needsPermission) this.notice = { kind: 'screenRecordingNeeded', message: strings.attachments.screenRecordingNeeded }
       return { files: file ? [file] : [], rejected: [] }
     })
   }
@@ -282,8 +285,13 @@ export class AppController {
     this.notice = null
   }
 
+  openScreenRecordingSettings(): void {
+    this.notice = null
+    void this._bridge.call('screenRecording.openSettings', {})
+  }
+
   private showNotice(message: string): void {
-    this.notice = message
+    this.notice = { kind: 'info', message }
     if (this._noticeTimer) clearTimeout(this._noticeTimer)
     this._noticeTimer = setTimeout(() => this.dismissNotice(), NOTICE_DURATION_MS)
   }

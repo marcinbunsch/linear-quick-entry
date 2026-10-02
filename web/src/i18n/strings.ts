@@ -70,7 +70,7 @@ export const strings = {
     failed: 'Upload failed',
     missingFile: 'The file is no longer on disk',
     screenRecordingNeeded:
-      'Screenshots need Screen Recording permission. Allow Linear Quick Entry in System Settings → Privacy & Security → Screen Recording, then try again.',
+      'Screenshots need Screen Recording permission. Allow Linear Quick Entry in System Settings, then quit and reopen the app: macOS only applies it after a restart.',
     rejected: (names: string[]) => `Skipped ${listNames(names)}: only images and videos can be attached`,
   },
   footer: {
