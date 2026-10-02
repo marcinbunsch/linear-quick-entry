@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Source for the app icon. Render with: node web/scripts/render-icons.mjs -->
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#848DE6" />
+      <stop offset="1" stop-color="#3F49B4" />
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22" />
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#1B1F4A" flood-opacity="0.35" />
+    </filter>
+  </defs>
+  <!-- macOS icon grid: an 824pt rounded square centred on the 1024pt canvas. -->
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#body)" filter="url(#shadow)" />
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#sheen)" />
+  <g stroke="#FFFFFF" stroke-linecap="round" fill="none">
+    <!-- The new-issue circle with a plus. -->
+    <circle cx="610" cy="512" r="178" stroke-width="48" />
+    <path d="M610 432v160M530 512h160" stroke-width="48" />
+    <!-- Speed lines: quick entry. -->
+    <path d="M262 436h88" stroke-width="40" stroke-opacity="0.5" />
+    <path d="M222 512h128" stroke-width="40" stroke-opacity="0.8" />
+    <path d="M262 588h88" stroke-width="40" stroke-opacity="0.5" />
+  </g>
+</svg>
