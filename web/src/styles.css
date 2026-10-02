@@ -1,0 +1,175 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/* Colours and sizes follow Linear's "New issue" dialog. Dark and light switch with the system appearance. */
+@theme {
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-chip: #ffffff;
+  --color-chip-hover: #f4f4f6;
+  --color-border: #e6e6e9;
+  --color-border-strong: #dcdce0;
+  --color-text: #1f2024;
+  --color-text-secondary: #3c3e45;
+  --color-text-muted: #6b6f76;
+  --color-text-faint: #a0a2a8;
+  --color-icon: #6b6f76;
+  --color-accent: #6e79d6;
+  --color-accent-hover: #5e6ad2;
+  --color-danger: #eb5757;
+  --color-selection: #eef0fb;
+  --color-toggle-off: #d4d4d8;
+  --font-sans: 'Inter Variable', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'SF Mono', ui-monospace, Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #1f2023;
+    --color-surface-raised: #26272b;
+    --color-chip: #1f2023;
+    --color-chip-hover: #2a2b30;
+    --color-border: #303136;
+    --color-border-strong: #3a3b41;
+    --color-text: #eeeff1;
+    --color-text-secondary: #d2d3d7;
+    --color-text-muted: #8a8f98;
+    --color-text-faint: #62666d;
+    --color-icon: #8a8f98;
+    --color-accent: #6e79d6;
+    --color-accent-hover: #7d87dc;
+    --color-danger: #eb5757;
+    --color-selection: #2c2f45;
+    --color-toggle-off: #3f4046;
+  }
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  /* The native window is transparent; only the modal card is drawn. */
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+input,
+textarea,
+.ProseMirror {
+  user-select: text;
+}
+
+.ProseMirror {
+  outline: none;
+  /* Leaves the empty gap Linear's dialog has between the description and the chips. */
+  min-height: 64px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.ProseMirror p {
+  margin: 0 0 0.5em;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--color-text-faint);
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.4em;
+  margin: 0 0 0.5em;
+}
+
+.ProseMirror ul {
+  list-style: disc;
+}
+
+.ProseMirror ol {
+  list-style: decimal;
+}
+
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3 {
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+
+.ProseMirror h1 {
+  font-size: 1.4em;
+}
+
+.ProseMirror h2 {
+  font-size: 1.2em;
+}
+
+.ProseMirror h3 {
+  font-size: 1.05em;
+}
+
+.ProseMirror code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-chip);
+  border-radius: 4px;
+  padding: 0.1em 0.3em;
+}
+
+.ProseMirror pre {
+  font-family: var(--font-mono);
+  background: var(--color-chip);
+  border-radius: 6px;
+  padding: 0.6em 0.8em;
+  margin: 0 0 0.5em;
+}
+
+.ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+
+.ProseMirror blockquote {
+  border-left: 3px solid var(--color-border-strong);
+  padding-left: 0.8em;
+  color: var(--color-text-muted);
+  margin: 0 0 0.5em;
+}
+
+.ProseMirror a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.ProseMirror .ProseMirror-selectednode [data-media-frame] {
+  outline: 2px solid var(--color-accent);
+}
+
+[cmdk-item][data-selected='true'] {
+  background: var(--color-chip-hover);
+}
+
+/* Linear's dialog shadow: a wide soft drop plus a tight contact shadow. */
+.panel-shadow {
+  box-shadow:
+    0 24px 48px -12px rgb(0 0 0 / 0.18),
+    0 4px 12px rgb(0 0 0 / 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel-shadow {
+    box-shadow:
+      0 24px 48px -12px rgb(0 0 0 / 0.6),
+      0 4px 12px rgb(0 0 0 / 0.3);
+  }
+}
