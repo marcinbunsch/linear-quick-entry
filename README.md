@@ -2,6 +2,10 @@
 
 A Mac menu bar app for filing Linear issues without leaving what you're doing. Press a hotkey, a "New issue" window floats over everything, you type, press ⌘↩, and it's gone.
 
+<p align="center">
+  <img src="docs/screenshot.png" width="835" alt="The Linear Quick Entry window: team, title and description, with chips for status, priority, assignee, project, estimate, labels and cycle, and a Create issue button">
+</p>
+
 ## What it does
 
 - **Title and description.** The description editor works like Linear's own, with headings, lists, code and links.
