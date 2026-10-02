@@ -1,0 +1,127 @@
+name: Release
+
+# Push a tag like v0.2.0 to build, sign, notarize and publish a DMG plus the Sparkle update feed.
+#
+# Required repository secrets:
+#   APPLE_TEAM_ID                     Your 10-character Apple Developer team ID
+#   DEVELOPER_ID_CERTIFICATE_P12      Base64 of the "Developer ID Application" certificate exported as .p12
+#   DEVELOPER_ID_CERTIFICATE_PASSWORD Password of that .p12
+#   NOTARY_API_KEY_P8                 Base64 of an App Store Connect API key (.p8) allowed to notarize
+#   NOTARY_API_KEY_ID                 That key's ID
+#   NOTARY_API_ISSUER_ID              That key's issuer ID
+#   SPARKLE_PUBLIC_KEY                Public EdDSA key printed by Sparkle's generate_keys
+#   SPARKLE_PRIVATE_KEY               The matching private key (generate_keys -x exports it)
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+env:
+  SPARKLE_VERSION: 2.10.0
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Build the web panel
+        run: |
+          pnpm --dir web install --frozen-lockfile
+          pnpm --dir web test
+          pnpm --dir web build
+
+      - name: Import the signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(uuidgen)"
+          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$keychain_password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain"
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+
+      - name: Set the version and update key
+        env:
+          SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $SPARKLE_PUBLIC_KEY" Support/Info.plist
+
+      - name: Archive
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -project LinearQuickEntry.xcodeproj \
+            -scheme LinearQuickEntry \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            -archivePath build/LinearQuickEntry.xcarchive \
+            MARKETING_VERSION="$VERSION" \
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            ENABLE_HARDENED_RUNTIME=YES \
+            OTHER_CODE_SIGN_FLAGS="--timestamp"
+          cp scripts/ExportOptions.plist "$RUNNER_TEMP/ExportOptions.plist"
+          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$RUNNER_TEMP/ExportOptions.plist"
+          xcodebuild -exportArchive \
+            -archivePath build/LinearQuickEntry.xcarchive \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath build/export
+
+      - name: Build, notarize and staple the DMG
+        env:
+          NOTARY_API_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
+          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          mkdir -p build/dmg build/release
+          cp -R "build/export/Linear Quick Entry.app" build/dmg/
+          ln -s /Applications build/dmg/Applications
+          dmg="build/release/LinearQuickEntry-$VERSION.dmg"
+          hdiutil create -volname "Linear Quick Entry" -srcfolder build/dmg -ov -format UDZO "$dmg"
+          echo "$NOTARY_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool submit "$dmg" --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID" --wait
+          xcrun stapler staple "$dmg"
+
+      - name: Generate the Sparkle update feed
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          curl -sSL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+          mkdir -p "$RUNNER_TEMP/sparkle"
+          tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          echo "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle_private_key"
+          "$RUNNER_TEMP/sparkle/bin/generate_appcast" \
+            --ed-key-file "$RUNNER_TEMP/sparkle_private_key" \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            build/release
+
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "build/release/LinearQuickEntry-$VERSION.dmg" \
+            build/release/appcast.xml \
+            --title "Linear Quick Entry $VERSION" \
+            --generate-notes
