@@ -1,0 +1,22 @@
+# Types for every query in src/ are generated from Linear's public schema.
+# Refresh the schema with: curl -sSL -o linear-schema.graphql https://raw.githubusercontent.com/linear/linear/master/packages/sdk/src/schema.graphql
+schema: ./linear-schema.graphql
+documents:
+  - src/**/*.ts
+  - '!src/linear/generated/**'
+ignoreNoDocuments: true
+generates:
+  ./src/linear/generated/:
+    preset: client
+    presetConfig:
+      fragmentMasking: false
+    config:
+      # The native bridge sends the query text, so documents are plain strings rather than parsed ASTs.
+      documentMode: string
+      enumsAsTypes: true
+      useTypeImports: true
+      scalars:
+        DateTime: string
+        TimelessDate: string
+        JSON: unknown
+        JSONObject: Record<string, unknown>
