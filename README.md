@@ -80,3 +80,7 @@ Run the tests with `pnpm --dir web test` and `xcodebuild test -project LinearQui
 ## Releasing
 
 Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`. It signs the app with a Developer ID certificate, notarizes and staples a DMG, signs the Sparkle update feed, and publishes both as a GitHub release. The secrets it needs are listed at the top of that file. To create the Sparkle keys, run Sparkle's `generate_keys` once and store both halves as secrets.
+
+## Licence
+
+MIT. See [LICENSE](LICENSE). Linear is a trademark of Linear Orbit, Inc.; this app is not made or endorsed by Linear.
