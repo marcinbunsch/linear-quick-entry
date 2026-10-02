@@ -159,17 +159,21 @@ textarea,
   background: var(--color-chip-hover);
 }
 
-/* Linear's dialog shadow: a wide soft drop plus a tight contact shadow. */
+/*
+ * Linear's dialog shadow: a soft drop plus a tight contact shadow. It must fit inside the transparent
+ * margin App.tsx leaves around the card (32px at the sides, 48px below), or the window edge cuts it off.
+ * The drop reaches 24px sideways (32px blur - 8px spread) and 40px down (that plus the 16px offset).
+ */
 .panel-shadow {
   box-shadow:
-    0 24px 48px -12px rgb(0 0 0 / 0.18),
-    0 4px 12px rgb(0 0 0 / 0.06);
+    0 16px 32px -8px rgb(0 0 0 / 0.16),
+    0 2px 6px rgb(0 0 0 / 0.06);
 }
 
 @media (prefers-color-scheme: dark) {
   .panel-shadow {
     box-shadow:
-      0 24px 48px -12px rgb(0 0 0 / 0.6),
-      0 4px 12px rgb(0 0 0 / 0.3);
+      0 16px 32px -8px rgb(0 0 0 / 0.55),
+      0 2px 6px rgb(0 0 0 / 0.3);
   }
 }

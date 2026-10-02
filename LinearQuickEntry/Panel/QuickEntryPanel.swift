@@ -31,8 +31,8 @@ final class QuickEntryPanel: NSPanel {
 /// Where the panel sits: horizontally centred, its top a fixed distance down the screen,
 /// growing downwards as the card grows.
 enum PanelGeometry {
-    /// The 720px card plus 24px of transparent margin on each side for its shadow (the page's `p-6`).
-    static let width: CGFloat = 768
+    /// The 720px card plus 32px of transparent margin on each side for its shadow (the page's `px-8`).
+    static let width: CGFloat = 784
     static let minimumHeight: CGFloat = 220
     /// 18% down from the top of the usable screen, roughly where Spotlight and Linear's own dialog sit.
     static let topOffsetFraction: CGFloat = 0.18

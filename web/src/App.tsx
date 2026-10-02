@@ -55,8 +55,8 @@ export const App = observer(function App({ app }: { app: AppController }) {
   const pickerRoom = app.openPicker ? 360 : 0
 
   return (
-    // The padding leaves room for the card's shadow inside the transparent native window.
-    <div ref={frameRef} className="p-6" style={{ paddingBottom: 24 + pickerRoom }}>
+    // The padding is the room for the card's shadow inside the transparent native window (see .panel-shadow).
+    <div ref={frameRef} className="px-8 pt-6" style={{ paddingBottom: 48 + pickerRoom }}>
       <IssueModal app={app} titleRef={titleRef} onPickerClosed={restoreFocus} />
     </div>
   )

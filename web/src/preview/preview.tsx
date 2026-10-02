@@ -13,6 +13,8 @@ import '../styles.css'
 const parameters = new URLSearchParams(window.location.search)
 const scenario = parameters.get('scenario') ?? 'empty'
 const picker = PICKER_NAMES.find((name) => name === parameters.get('picker')) ?? null
+// A white desktop shows any shadow clipping most clearly.
+if (parameters.get('backdrop') === 'white') document.documentElement.classList.add('white-backdrop')
 
 const bridge = new FakeNativeBridge()
 seedReferenceDataCache(bridge, Date.now())
