@@ -11,7 +11,7 @@ type HeaderBarProps = { app: AppController; onPickerClosed: () => void }
 export const HeaderBar = observer(function HeaderBar({ app, onPickerClosed }: HeaderBarProps) {
   const isSubIssue = app.draft.fields.parent != null
   return (
-    <div className="flex h-12 items-center gap-1.5 pl-3 pr-2.5 pt-1">
+    <div className="flex h-12 items-center gap-1.5 pl-3 pr-2.5 pt-1" data-drag-area>
       <TeamPicker app={app} onPickerClosed={onPickerClosed} />
       <ChevronRightIcon className="shrink-0 text-[var(--color-text-faint)]" />
       <ParentPicker app={app} onPickerClosed={onPickerClosed} />

@@ -1,4 +1,4 @@
-import { act, cleanup, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
@@ -114,5 +114,16 @@ describe('App', () => {
     await vi.waitFor(() => expect(bridge.callsTo('issue.created')).toHaveLength(1))
     expect(bridge.callsTo('panel.hide')).toEqual([])
     expect(screen.getByTestId('create-more')).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('mouse-down on empty header space -> window drag starts; on a chip or the title -> it does not', async () => {
+    const { app, bridge } = await renderPanel()
+    appToDispose = app
+
+    fireEvent.mouseDown(screen.getByText('New issue'))
+    fireEvent.mouseDown(screen.getByText('ENG'))
+    fireEvent.mouseDown(screen.getByTestId('title-input'))
+
+    expect(bridge.callsTo('panel.beginDrag')).toHaveLength(1)
   })
 })

@@ -248,9 +248,15 @@ export class AppController {
 
   async captureScreenshot(): Promise<void> {
     await this.runNativeFileAction(async () => {
-      const { file } = await this._bridge.call('screenshot.capture', {})
+      const { file, needsPermission } = await this._bridge.call('screenshot.capture', {})
+      if (needsPermission) this.showNotice(strings.attachments.screenRecordingNeeded)
       return { files: file ? [file] : [], rejected: [] }
     })
+  }
+
+  /** Starts moving the native window with the mouse; called on mouse-down in the header or footer. */
+  beginWindowDrag(): void {
+    void this._bridge.call('panel.beginDrag', {})
   }
 
   /** The native side reads the clipboard, because the webview only sees a placeholder for copied files. */

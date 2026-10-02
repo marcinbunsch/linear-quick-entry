@@ -1,6 +1,6 @@
 import { EditorContent } from '@tiptap/react'
 import { observer } from 'mobx-react-lite'
-import { useEffect, type ReactNode, type RefObject } from 'react'
+import { useEffect, type MouseEvent, type ReactNode, type RefObject } from 'react'
 import { strings } from '../i18n/strings'
 import type { AppController } from '../state/AppController'
 import { AttachmentPreview } from './AttachmentPreview'
@@ -19,6 +19,9 @@ export const IssueModal = observer(function IssueModal({ app, titleRef, onPicker
   return (
     <div
       className="panel-shadow relative flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]"
+      onMouseDown={(event) => {
+        if (isWindowDragStart(event)) app.beginWindowDrag()
+      }}
       data-testid="issue-modal"
     >
       <HeaderBar app={app} onPickerClosed={onPickerClosed} />
@@ -36,6 +39,14 @@ export const IssueModal = observer(function IssueModal({ app, titleRef, onPicker
     </div>
   )
 })
+
+/** The header and footer move the window, like a title bar, except where they hold a control. */
+function isWindowDragStart(event: MouseEvent): boolean {
+  if (event.button !== 0 || !(event.target instanceof Element)) return false
+  const isInDragArea = event.target.closest('[data-drag-area]') != null
+  const isOnControl = event.target.closest('button, input, textarea, a, [role="switch"], label') != null
+  return isInDragArea && !isOnControl
+}
 
 const TitleInput = observer(function TitleInput({ app, titleRef }: { app: AppController; titleRef: RefObject<HTMLTextAreaElement | null> }) {
   const title = app.draft.fields.title
@@ -165,7 +176,7 @@ function BannerButton({ label, onClick }: { label: string; onClick: () => void }
 const Footer = observer(function Footer({ app }: { app: AppController }) {
   const { state } = app.submitter
   return (
-    <div className="flex items-center gap-2 px-3 pb-3 pt-3">
+    <div className="flex items-center gap-2 px-3 pb-3 pt-3" data-drag-area>
       <RoundIconButton title={`${strings.attachments.attachFiles} (⌘⇧U)`} onClick={() => void app.pickFiles()} testId="attach-files">
         <PaperclipIcon />
       </RoundIconButton>

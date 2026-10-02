@@ -173,7 +173,7 @@ describe('AppController', () => {
     it('screenshot taken while typing the title -> goes to the tray', async () => {
       const { app, bridge } = await startedApp()
       appToDispose = app
-      bridge.handle('screenshot.capture', async () => ({ file: screenshotFile() }))
+      bridge.handle('screenshot.capture', async () => ({ file: screenshotFile(), needsPermission: false }))
 
       app.setLastFocusedField('title')
       await app.captureScreenshot()
@@ -184,11 +184,23 @@ describe('AppController', () => {
     it('screenshot cancelled -> nothing added', async () => {
       const { app, bridge } = await startedApp()
       appToDispose = app
-      bridge.handle('screenshot.capture', async () => ({ file: null }))
+      bridge.handle('screenshot.capture', async () => ({ file: null, needsPermission: false }))
 
       await app.captureScreenshot()
 
       expect(app.attachments.attachments.size).toBe(0)
+      expect(app.notice).toBeNull()
+    })
+
+    it('no Screen Recording permission yet -> nothing added, notice says where to allow it', async () => {
+      const { app, bridge } = await startedApp()
+      appToDispose = app
+      bridge.handle('screenshot.capture', async () => ({ file: null, needsPermission: true }))
+
+      await app.captureScreenshot()
+
+      expect(app.attachments.attachments.size).toBe(0)
+      expect(app.notice).toContain('System Settings → Privacy & Security → Screen Recording')
     })
   })
 

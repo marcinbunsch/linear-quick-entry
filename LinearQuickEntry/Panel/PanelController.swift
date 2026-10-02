@@ -32,6 +32,9 @@ final class PanelController: NSObject, WKNavigationDelegate {
     private var contentHeight = PanelGeometry.minimumHeight
     private var panelURL = AppSchemeHandler.entryURL
     private var recentTerminations: [Date] = []
+    private let placementStore = PanelPlacementStore()
+    /// Watches mouse drags while the user moves the panel by its header; nil when not dragging.
+    private var dragMonitor: Any?
 
     // Three crashes within a minute means the page itself is broken, not that memory ran low once.
     private static let maximumTerminationsInWindow = 3
@@ -85,7 +88,7 @@ final class PanelController: NSObject, WKNavigationDelegate {
     }
 
     func toggle(mode: PanelOpenMode) {
-        let isInFront = panel.isVisible && panel.isKeyWindow && NSApp.isActive
+        let isInFront = panel.isVisible && panel.isKeyWindow
         if isInFront && mode == .newIssue {
             hide()
         } else {
@@ -97,7 +100,7 @@ final class PanelController: NSObject, WKNavigationDelegate {
         if !panel.isVisible {
             let frontmost = NSWorkspace.shared.frontmostApplication
             previousApp = frontmost?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
-            panel.setFrame(PanelGeometry.frame(height: contentHeight, on: screenUnderMouse().visibleFrame), display: false)
+            panel.setFrame(initialFrame(on: screenUnderMouse()), display: false)
         }
         bringToFront()
         bridge.sendEvent("panel.shown", payload: ["mode": mode.rawValue])
@@ -171,10 +174,50 @@ final class PanelController: NSObject, WKNavigationDelegate {
     }
     #endif
 
+    /// Spotlight-style: the panel takes the keyboard without activating the app. macOS 14+ refuses
+    /// activation requests from a background app (even `ignoringOtherApps`), which left the panel on
+    /// screen with typing still going to the app underneath. A non-activating panel can be key anyway.
     private func bringToFront() {
-        panel.makeKeyAndOrderFront(nil)
-        NSApp.activate()
+        panel.orderFrontRegardless()
+        panel.makeKey()
         panel.makeFirstResponder(webView)
+    }
+
+    /// Where the dragged panel was left on this screen, or the default spot under the menu bar.
+    private func initialFrame(on screen: NSScreen) -> CGRect {
+        if let topLeft = placementStore.topLeft(for: screen.frame) {
+            return PanelGeometry.frame(height: contentHeight, topLeft: topLeft, on: screen.visibleFrame)
+        }
+        return PanelGeometry.frame(height: contentHeight, on: screen.visibleFrame)
+    }
+
+    /// The page asks for this on a mouse-down in an empty part of the header or footer. The panel then
+    /// follows the mouse until it's released, and the spot is remembered for this screen.
+    private func beginDrag() {
+        // The request arrives a moment after the mouse-down; a click that's already over must not
+        // leave the panel glued to the next drag (like selecting text).
+        let isMouseDown = NSEvent.pressedMouseButtons & 1 != 0
+        guard isMouseDown, dragMonitor == nil else { return }
+        let startMouse = NSEvent.mouseLocation
+        let startOrigin = panel.frame.origin
+        dragMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            guard let self else { return event }
+            if event.type == .leftMouseUp {
+                self.endDrag()
+                return event
+            }
+            let mouse = NSEvent.mouseLocation
+            self.panel.setFrameOrigin(NSPoint(x: startOrigin.x + mouse.x - startMouse.x, y: startOrigin.y + mouse.y - startMouse.y))
+            return event
+        }
+    }
+
+    private func endDrag() {
+        if let dragMonitor { NSEvent.removeMonitor(dragMonitor) }
+        dragMonitor = nil
+        guard let screen = panel.screen else { return }
+        placementStore.save(topLeft: CGPoint(x: panel.frame.minX, y: panel.frame.maxY), for: screen.frame)
+        Log.panel.info("panel moved")
     }
 
     private func resize(toHeight height: CGFloat) {
@@ -210,7 +253,8 @@ final class PanelController: NSObject, WKNavigationDelegate {
             resize: { [weak self] height in self?.resize(toHeight: height) },
             openSettings: { [weak self] in self?.onOpenSettings() },
             pickFiles: { [weak self] in await self?.pickFiles() ?? [] },
-            captureScreenshot: { [weak self] in try await self?.captureScreenshot() },
+            captureScreenshot: { [weak self] in try await self?.captureScreenshot() ?? .cancelled },
+            beginDrag: { [weak self] in self?.beginDrag() },
             issueCreated: { [weak self] issue in self?.onIssueCreated(issue) }
         )
     }
@@ -229,11 +273,19 @@ final class PanelController: NSObject, WKNavigationDelegate {
         return response == .OK ? openPanel.urls : []
     }
 
-    private func captureScreenshot() async throws -> LocalFile? {
+    private func captureScreenshot() async throws -> ScreenshotOutcome {
+        // Without permission macOS shows its own prompt, or the user has to visit System Settings.
+        // The floating panel would sit on top of either, so it stays hidden until the next hotkey.
+        guard CGPreflightScreenCaptureAccess() else {
+            panel.orderOut(nil)
+            ScreenRecordingPermission.request()
+            return .needsPermission
+        }
         // Out of the way while the user selects a region, then straight back.
         panel.orderOut(nil)
         defer { bringToFront() }
-        return try await ScreenshotCapturer(registry: registry).capture()
+        guard let file = try await ScreenshotCapturer(registry: registry).capture() else { return .cancelled }
+        return .captured(file)
     }
 }
 

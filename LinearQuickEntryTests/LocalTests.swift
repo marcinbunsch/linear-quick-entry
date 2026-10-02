@@ -91,6 +91,23 @@ struct PanelGeometryTests {
         #expect(resized.height == 520)
     }
 
+    @Test("dragged panel -> reopens with the same top-left corner")
+    func draggedPlacement() {
+        let frame = PanelGeometry.frame(height: 400, topLeft: CGPoint(x: 120, y: 800), on: visibleFrame)
+
+        #expect(frame.minX == 120)
+        #expect(frame.maxY == 800)
+        #expect(frame.height == 400)
+    }
+
+    @Test("dragged half off the screen -> pulled back fully onto it")
+    func draggedOffScreen() {
+        let frame = PanelGeometry.frame(height: 400, topLeft: CGPoint(x: 1_400, y: 2_000), on: visibleFrame)
+
+        #expect(frame.maxX == visibleFrame.maxX)
+        #expect(frame.maxY == visibleFrame.maxY)
+    }
+
     @Test("tiny or huge heights -> clamped to the minimum and to 85% of the screen")
     func clamped() {
         #expect(PanelGeometry.frame(height: 40, on: visibleFrame).height == PanelGeometry.minimumHeight)
@@ -104,5 +121,20 @@ struct AppSchemeHandlerTests {
         #expect(AppSchemeHandler.mimeType(forPathExtension: "js") == "text/javascript")
         #expect(AppSchemeHandler.mimeType(forPathExtension: "css") == "text/css")
         #expect(AppSchemeHandler.mimeType(forPathExtension: "html") == "text/html")
+    }
+}
+
+struct PanelPlacementStoreTests {
+    @Test("panel dragged on this screen -> remembered for it, not for another screen")
+    func perScreen() throws {
+        let defaults = try #require(UserDefaults(suiteName: "PanelPlacementStoreTests-\(UUID().uuidString)"))
+        let store = PanelPlacementStore(defaults: defaults)
+        let laptop = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        let monitor = CGRect(x: 1512, y: 0, width: 2560, height: 1440)
+
+        store.save(topLeft: CGPoint(x: 300, y: 700), for: laptop)
+
+        #expect(store.topLeft(for: laptop) == CGPoint(x: 300, y: 700))
+        #expect(store.topLeft(for: monitor) == nil)
     }
 }

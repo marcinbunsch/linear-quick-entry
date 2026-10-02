@@ -168,7 +168,8 @@ struct NetworkTests {
                     resize: { _ in },
                     openSettings: {},
                     pickFiles: { [] },
-                    captureScreenshot: { nil },
+                    captureScreenshot: { .cancelled },
+                    beginDrag: {},
                     issueCreated: { _ in }
                 )
             )

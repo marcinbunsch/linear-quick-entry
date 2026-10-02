@@ -32,7 +32,8 @@ export type NativeMethods = {
   'files.readClipboard': { params: Record<string, never>; result: { files: LocalFile[]; rejected: string[] } }
   /** Re-registers files from a restored draft so they get fresh preview URLs. Missing files are dropped. */
   'files.register': { params: { paths: string[] }; result: { files: LocalFile[] } }
-  'screenshot.capture': { params: Record<string, never>; result: { file: LocalFile | null } }
+  /** `needsPermission`: Screen Recording isn't allowed yet; the native side sent the user to grant it. */
+  'screenshot.capture': { params: Record<string, never>; result: { file: LocalFile | null; needsPermission: boolean } }
   /** Uploads to Linear's storage. Progress arrives as `upload.progress` events. */
   'upload.start': {
     params: { uploadId: string; path: string; name: string; contentType: string }
@@ -40,6 +41,8 @@ export type NativeMethods = {
   }
   'upload.cancel': { params: { uploadId: string }; result: Record<string, never> }
   'panel.hide': { params: Record<string, never>; result: Record<string, never> }
+  /** Sent on mouse-down in a drag area; the native window then follows the mouse until it's released. */
+  'panel.beginDrag': { params: Record<string, never>; result: Record<string, never> }
   /** Height in CSS pixels of the visible modal, so the native window can follow it. */
   'panel.resize': { params: { height: number }; result: Record<string, never> }
   /** Copies the URL and shows the "Created ENG-123" message. */

@@ -69,6 +69,8 @@ export const strings = {
     uploading: 'Uploading…',
     failed: 'Upload failed',
     missingFile: 'The file is no longer on disk',
+    screenRecordingNeeded:
+      'Screenshots need Screen Recording permission. Allow Linear Quick Entry in System Settings → Privacy & Security → Screen Recording, then try again.',
     rejected: (names: string[]) => `Skipped ${listNames(names)}: only images and videos can be attached`,
   },
   footer: {

@@ -51,6 +51,14 @@ enum PanelGeometry {
         return CGRect(x: frame.minX, y: bottom, width: frame.width, height: frame.maxY - bottom)
     }
 
+    /// A panel the user dragged: same top-left corner, kept fully on the usable part of the screen.
+    static func frame(height: CGFloat, topLeft: CGPoint, on visibleFrame: CGRect) -> CGRect {
+        let clampedHeight = clamp(height: height, within: visibleFrame)
+        let x = min(max(topLeft.x, visibleFrame.minX), visibleFrame.maxX - width)
+        let top = min(max(topLeft.y, visibleFrame.minY + clampedHeight), visibleFrame.maxY)
+        return CGRect(x: x, y: top - clampedHeight, width: width, height: clampedHeight)
+    }
+
     private static func clamp(height: CGFloat, within visibleFrame: CGRect) -> CGFloat {
         // 85%: leave some of the screen visible so the panel never reads as a full window.
         min(max(height, minimumHeight), visibleFrame.height * 0.85)

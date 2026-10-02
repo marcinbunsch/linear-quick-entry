@@ -8,7 +8,9 @@ struct PanelActions {
     /// Shows an Open panel; returns the chosen files, or none when cancelled.
     var pickFiles: () async -> [URL]
     /// Hides the panel while the user selects a region, then shows it again.
-    var captureScreenshot: () async throws -> LocalFile?
+    var captureScreenshot: () async throws -> ScreenshotOutcome
+    /// Moves the panel with the mouse until the button is released.
+    var beginDrag: () -> Void
     var issueCreated: (_ issue: CreatedIssue) -> Void
 }
 
@@ -70,7 +72,7 @@ final class BridgeRouter {
             return try encode(RegisterResult(files: registration.files))
 
         case "screenshot.capture":
-            return try encode(ScreenshotResult(file: try await panelActions.captureScreenshot()))
+            return try encode(ScreenshotResult(try await panelActions.captureScreenshot()))
 
         case "upload.start":
             let request = try decode(UploadStartParams.self, from: params)
@@ -94,6 +96,10 @@ final class BridgeRouter {
 
         case "panel.hide":
             panelActions.hide()
+            return emptyResult
+
+        case "panel.beginDrag":
+            panelActions.beginDrag()
             return emptyResult
 
         case "panel.resize":
@@ -191,15 +197,36 @@ private struct FilesResult: Encodable {
 private struct RegisterParams: Decodable { let paths: [String] }
 private struct RegisterResult: Encodable { let files: [LocalFile] }
 
-private struct ScreenshotResult: Encodable {
-    let file: LocalFile?
+enum ScreenshotOutcome {
+    case captured(LocalFile)
+    case cancelled
+    /// Screen Recording isn't allowed yet; the user was sent to grant it.
+    case needsPermission
+}
 
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(file, forKey: .file)
+private struct ScreenshotResult: Encodable {
+    let outcome: ScreenshotOutcome
+
+    init(_ outcome: ScreenshotOutcome) {
+        self.outcome = outcome
     }
 
-    private enum CodingKeys: String, CodingKey { case file }
+    // `file` is always present, as null when there is none, matching the panel's protocol.
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if case .captured(let file) = outcome {
+            try container.encode(file, forKey: .file)
+        } else {
+            try container.encodeNil(forKey: .file)
+        }
+        if case .needsPermission = outcome {
+            try container.encode(true, forKey: .needsPermission)
+        } else {
+            try container.encode(false, forKey: .needsPermission)
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey { case file, needsPermission }
 }
 
 private struct UploadStartParams: Decodable {
