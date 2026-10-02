@@ -2,11 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Merged with the keys Xcode generates from the INFOPLIST_KEY_* build settings. -->
 	<key>SUFeedURL</key>
 	<string>https://github.com/marcinbunsch/linear-quick-entry/releases/latest/download/appcast.xml</string>
-	<!-- Filled in by the release workflow from the SPARKLE_PUBLIC_KEY secret; empty means "don't check for updates". -->
 	<key>SUPublicEDKey</key>
-	<string></string>
+	<string>3JOv5Crq3rZN5JF0Bl8W0kfiiwtx0z+pOjQFe530Cic=</string>
 </dict>
 </plist>

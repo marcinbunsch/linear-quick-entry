@@ -1,21 +1,23 @@
 name: Release
 
-# Push a tag like v0.2.0 to build, sign, notarize and publish a DMG plus the Sparkle update feed.
+# Cut a release with ./scripts/release.sh <patch|minor|major|x.y.z>: it bumps the version,
+# tags and pushes, and pushing the tag runs this workflow, which attaches a signed,
+# notarized DMG and the Sparkle update feed to a draft GitHub release.
 #
-# Required repository secrets:
-#   APPLE_TEAM_ID                     Your 10-character Apple Developer team ID
-#   DEVELOPER_ID_CERTIFICATE_P12      Base64 of the "Developer ID Application" certificate exported as .p12
-#   DEVELOPER_ID_CERTIFICATE_PASSWORD Password of that .p12
-#   NOTARY_API_KEY_P8                 Base64 of an App Store Connect API key (.p8) allowed to notarize
-#   NOTARY_API_KEY_ID                 That key's ID
-#   NOTARY_API_ISSUER_ID              That key's issuer ID
-#   SPARKLE_PUBLIC_KEY                Public EdDSA key printed by Sparkle's generate_keys
-#   SPARKLE_PRIVATE_KEY               The matching private key (generate_keys -x exports it)
-
+# The secrets come from ./scripts/setup-signing.sh (run once on the Mac with the certificate):
+#   SIGN_CERT_P12, SIGN_CERT_PASSWORD   the Developer ID certificate and its export password
+#   SIGN_IDENTITY                       its full name, "Developer ID Application: Name (TEAMID)"
+#   SIGN_APPLE_ID, SIGN_APP_PASSWORD    Apple ID and app-specific password, for notarization
+#   SPARKLE_PRIVATE_KEY                 signs the update feed; the public half is in Support/Info.plist
+#
+# `workflow_dispatch` builds the same DMG without a tag. With no secrets set it is unsigned,
+# for checking a packaging change before cutting a release.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
+# gh release create/upload writes to the repo.
 permissions:
   contents: write
 
@@ -23,8 +25,14 @@ env:
   SPARKLE_VERSION: 2.10.0
 
 jobs:
-  release:
+  macos:
+    # Xcode 26 is needed for Swift 6.2+ default actor isolation and synchronized project folders.
     runs-on: macos-26
+    timeout-minutes: 45
+    # A step's `if` cannot read `secrets`, so the certificate is surfaced as env for the steps to test.
+    env:
+      SIGN_CERT_P12: ${{ secrets.SIGN_CERT_P12 }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: pnpm/action-setup@v4
@@ -42,70 +50,108 @@ jobs:
           pnpm --dir web test
           pnpm --dir web build
 
-      - name: Import the signing certificate
-        env:
-          CERTIFICATE_P12: ${{ secrets.DEVELOPER_ID_CERTIFICATE_P12 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+      - name: Version
         run: |
-          keychain="$RUNNER_TEMP/signing.keychain-db"
-          keychain_password="$(uuidgen)"
-          echo "$CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
-          security create-keychain -p "$keychain_password" "$keychain"
-          security set-keychain-settings -lut 21600 "$keychain"
-          security unlock-keychain -p "$keychain_password" "$keychain"
-          security import "$RUNNER_TEMP/certificate.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
-          security set-key-partition-list -S apple-tool:,apple: -k "$keychain_password" "$keychain"
-          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev.${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          fi
 
-      - name: Set the version and update key
+      # The Developer ID certificate, into a keychain that exists only for this job.
+      # Skipped when the secret is absent, which is what makes an unsigned dispatch build work.
+      - name: Import signing certificate
+        if: env.SIGN_CERT_P12 != ''
         env:
-          SPARKLE_PUBLIC_KEY: ${{ secrets.SPARKLE_PUBLIC_KEY }}
+          CERT_PASSWORD: ${{ secrets.SIGN_CERT_PASSWORD }}
         run: |
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-          /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey $SPARKLE_PUBLIC_KEY" Support/Info.plist
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$SIGN_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/cert.p12"
+          # Without this, codesign prompts for keychain access and the job hangs.
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          # On the search list so codesign finds the identity by name.
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+          security find-identity -v -p codesigning "$KEYCHAIN"
 
-      - name: Archive
+      - name: Build the app
         env:
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
         run: |
-          xcodebuild archive \
-            -project LinearQuickEntry.xcodeproj \
-            -scheme LinearQuickEntry \
-            -configuration Release \
-            -derivedDataPath build/DerivedData \
-            -archivePath build/LinearQuickEntry.xcarchive \
-            MARKETING_VERSION="$VERSION" \
-            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
-            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Developer ID Application" \
-            ENABLE_HARDENED_RUNTIME=YES \
-            OTHER_CODE_SIGN_FLAGS="--timestamp"
-          cp scripts/ExportOptions.plist "$RUNNER_TEMP/ExportOptions.plist"
-          /usr/libexec/PlistBuddy -c "Add :teamID string $APPLE_TEAM_ID" "$RUNNER_TEMP/ExportOptions.plist"
-          xcodebuild -exportArchive \
-            -archivePath build/LinearQuickEntry.xcarchive \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -exportPath build/export
+          COMMON=(
+            -project LinearQuickEntry.xcodeproj
+            -scheme LinearQuickEntry
+            -configuration Release
+            -derivedDataPath build/DerivedData
+            MARKETING_VERSION="$VERSION"
+            CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER"
+          )
+          mkdir -p build/app
+          if [ -n "$SIGN_CERT_P12" ]; then
+            TEAM_ID="$(echo "$SIGN_IDENTITY" | sed -E 's/.*\(([A-Z0-9]+)\)$/\1/')"
+            # Hardened runtime is required for notarization; local builds leave it off (see Signing.xcconfig).
+            xcodebuild archive "${COMMON[@]}" \
+              -archivePath build/LinearQuickEntry.xcarchive \
+              DEVELOPMENT_TEAM="$TEAM_ID" \
+              CODE_SIGN_STYLE=Manual \
+              CODE_SIGN_IDENTITY="$SIGN_IDENTITY" \
+              ENABLE_HARDENED_RUNTIME=YES \
+              OTHER_CODE_SIGN_FLAGS="--timestamp"
+            cp scripts/ExportOptions.plist "$RUNNER_TEMP/ExportOptions.plist"
+            /usr/libexec/PlistBuddy -c "Add :teamID string $TEAM_ID" "$RUNNER_TEMP/ExportOptions.plist"
+            xcodebuild -exportArchive \
+              -archivePath build/LinearQuickEntry.xcarchive \
+              -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+              -exportPath build/app
+          else
+            echo "::warning::No signing secrets: building an unsigned app."
+            xcodebuild build "${COMMON[@]}"
+            cp -R "build/DerivedData/Build/Products/Release/Linear Quick Entry.app" build/app/
+          fi
 
-      - name: Build, notarize and staple the DMG
+      - name: Build the DMG
+        id: dmg
         env:
-          NOTARY_API_KEY_P8: ${{ secrets.NOTARY_API_KEY_P8 }}
-          NOTARY_API_KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
-          NOTARY_API_ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
         run: |
+          NAME="LinearQuickEntry-$VERSION.dmg"
           mkdir -p build/dmg build/release
-          cp -R "build/export/Linear Quick Entry.app" build/dmg/
+          cp -R "build/app/Linear Quick Entry.app" build/dmg/
           ln -s /Applications build/dmg/Applications
-          dmg="build/release/LinearQuickEntry-$VERSION.dmg"
-          hdiutil create -volname "Linear Quick Entry" -srcfolder build/dmg -ov -format UDZO "$dmg"
-          echo "$NOTARY_API_KEY_P8" | base64 --decode > "$RUNNER_TEMP/notary.p8"
-          xcrun notarytool submit "$dmg" --key "$RUNNER_TEMP/notary.p8" --key-id "$NOTARY_API_KEY_ID" --issuer "$NOTARY_API_ISSUER_ID" --wait
-          xcrun stapler staple "$dmg"
+          hdiutil create -volname "Linear Quick Entry" -srcfolder build/dmg -ov -format UDZO "build/release/$NAME"
+          if [ -n "$SIGN_CERT_P12" ]; then
+            codesign --sign "$SIGN_IDENTITY" --timestamp "build/release/$NAME"
+          fi
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Generate the Sparkle update feed
+      # Notarizing the DMG covers the app inside it; stapling lets it open offline on first launch.
+      - name: Notarize
+        if: env.SIGN_CERT_P12 != ''
         env:
-          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
+          SIGN_APPLE_ID: ${{ secrets.SIGN_APPLE_ID }}
+          SIGN_APP_PASSWORD: ${{ secrets.SIGN_APP_PASSWORD }}
+        run: |
+          TEAM_ID="$(echo "$SIGN_IDENTITY" | sed -E 's/.*\(([A-Z0-9]+)\)$/\1/')"
+          DMG="build/release/${{ steps.dmg.outputs.name }}"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$SIGN_APPLE_ID" \
+            --password "$SIGN_APP_PASSWORD" \
+            --team-id "$TEAM_ID" \
+            --wait
+          xcrun stapler staple "$DMG"
+          # Proof in the log that the artifact is what it claims to be.
+          codesign --verify --deep --strict --verbose=2 "build/app/Linear Quick Entry.app"
+          spctl --assess --type open --context context:primary-signature --verbose "$DMG"
+
+      # The feed Sparkle reads from releases/latest/download/appcast.xml, signed with the private key.
+      - name: Generate the update feed
+        if: startsWith(github.ref, 'refs/tags/v') && env.SPARKLE_PRIVATE_KEY != ''
         run: |
           curl -sSL -o "$RUNNER_TEMP/sparkle.tar.xz" "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
           mkdir -p "$RUNNER_TEMP/sparkle"
@@ -115,13 +161,22 @@ jobs:
             --ed-key-file "$RUNNER_TEMP/sparkle_private_key" \
             --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
             build/release
+          rm "$RUNNER_TEMP/sparkle_private_key"
 
-      - name: Publish the GitHub release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.dmg.outputs.name }}
+          path: build/release/${{ steps.dmg.outputs.name }}
+
+      # A draft, so the notes are yours to write. Publishing it is what makes the update feed live:
+      # Sparkle reads the feed from the latest published release.
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            "build/release/LinearQuickEntry-$VERSION.dmg" \
-            build/release/appcast.xml \
-            --title "Linear Quick Entry $VERSION" \
-            --generate-notes
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --draft --title "Linear Quick Entry $VERSION" --generate-notes
+          FILES=("build/release/${{ steps.dmg.outputs.name }}")
+          if [ -f build/release/appcast.xml ]; then FILES+=(build/release/appcast.xml); fi
+          gh release upload "$GITHUB_REF_NAME" "${FILES[@]}" --clobber

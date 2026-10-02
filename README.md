@@ -79,7 +79,19 @@ Run the tests with `pnpm --dir web test` and `xcodebuild test -project LinearQui
 
 ## Releasing
 
-Pushing a tag like `v0.2.0` runs `.github/workflows/release.yml`. It signs the app with a Developer ID certificate, notarizes and staples a DMG, signs the Sparkle update feed, and publishes both as a GitHub release. The secrets it needs are listed at the top of that file. To create the Sparkle keys, run Sparkle's `generate_keys` once and store both halves as secrets.
+Releases are signed with a Developer ID certificate, notarized by Apple, and update themselves through [Sparkle](https://sparkle-project.org).
+
+Setting it up, once, on the Mac that has the certificate:
+
+1. Copy `.env.example` to `.env` and fill in the certificate's name, your Apple ID and an app-specific password. Git ignores `.env`.
+2. Run `./scripts/setup-signing.sh`. It exports the certificate, creates the update-signing key, and stores everything as GitHub secrets. macOS asks for your keychain password along the way.
+3. Commit the change it makes to `Support/Info.plist` (the update key's public half).
+
+Cutting a release:
+
+1. Run `./scripts/release.sh patch` (or `minor`, `major`, or an exact version like `0.1.0`). It bumps the version, tags it and pushes.
+2. The Release workflow builds the DMG, notarizes it and attaches it, with the update feed, to a draft GitHub release.
+3. Publish the draft. That's the moment existing installs see the update.
 
 ## Licence
 
